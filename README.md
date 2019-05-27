@@ -1,6 +1,6 @@
 # gettext.cr
 
-TODO: Write a description here
+Crystal implementation of gettext
 
 ## Installation
 
@@ -8,8 +8,8 @@ TODO: Write a description here
 
    ```yaml
    dependencies:
-     gettext.cr:
-       github: your-github-user/gettext.cr
+     gettext:
+       github: omarroth/gettext.cr
    ```
 
 2. Run `shards install`
@@ -17,7 +17,7 @@ TODO: Write a description here
 ## Usage
 
 ```crystal
-require "gettext.cr"
+require "gettext"
 ```
 
 TODO: Write usage instructions here
@@ -28,7 +28,7 @@ TODO: Write development instructions here
 
 ## Contributing
 
-1. Fork it (<https://github.com/your-github-user/gettext.cr/fork>)
+1. Fork it (<https://github.com/omarroth/gettext.cr/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
@@ -36,4 +36,4 @@ TODO: Write development instructions here
 
 ## Contributors
 
-- [Omar Roth](https://github.com/your-github-user) - creator and maintainer
+- [Omar Roth](https://github.com/omarroth) - creator and maintainer
