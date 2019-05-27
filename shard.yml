@@ -1,0 +1,17 @@
+name: gettext.cr
+version: 0.1.0
+
+authors:
+  - Omar Roth <omarroth@protonmail.com>
+
+description: |
+  Crystal implementation of gettext
+
+dependencies:
+  marpa:
+    github: omarroth/marpa
+    branch: master
+
+crystal: 0.28.0
+
+license: GPLv3
