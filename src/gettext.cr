@@ -27,13 +27,16 @@ struct Int32
 end
 
 module Gettext
+  # English singular, English plural, desired plural
+  alias Msg = Tuple(String, String?, Int32)
+
   class PoActions < Marpa::Actions
-    property catalog : Hash(Tuple(String, Int32), String)
+    property catalog : Hash(Msg, String)
     property metadata : Hash(String, String)
     property plural : Proc(Int32, Int32)
 
     def initialize
-      @catalog = {} of {String, Int32} => String
+      @catalog = {} of Msg => String
       @metadata = {} of String => String
       @plural = ->(x : Int32) { (x != 1).to_unsafe } # Germanic plural by default
     end
@@ -54,6 +57,7 @@ module Gettext
       comments = context[0]
       msgctxt = context[1]
       msg = context[2][0].as(Array)[1].as(String)
+      p_msg = context[2][0].as(Array)[2]?.try &.as(String)
       tmsg = context[3]
 
       # Handle metadata
@@ -95,7 +99,7 @@ module Gettext
             i = index.to_i
           end
 
-          @catalog[{msg, i}] = translation[2].as(String)
+          @catalog[{msg, p_msg, i}] = translation[2].as(String)
         end
       end
 
@@ -104,27 +108,43 @@ module Gettext
   end
 
   abstract struct Locale
+    property catalog : Hash(Msg, String)
+    property metadata : Hash(String, String)
+    property plural : Proc(Int32, Int32)
+
+    def initialize
+      @catalog = {} of Msg => String
+      @metadata = {} of String => String
+      @plural = ->(x : Int32) { (x != 1).to_unsafe } # Germanic plural by default
+    end
+
     def gettext(message)
-      if @catalog[{message, 0}]? && !@catalog[{message, 0}].empty?
-        return @catalog[{message, 0}]?
+      if @catalog.has_key?({message, nil, 0}) && !@catalog[{message, nil, 0}].empty?
+        return @catalog[{message, nil, 0}]
       else
         return message
       end
     end
 
-    def ngettext(singular : String, plural : String, n : Int32) : String
-      index = @plural.call(n)
+    def ngettext(singular : String, n : Int32) : String
+      ngettext(singular, nil, n)
+    end
 
-      if @catalog[{singular, index}]? && !@catalog[{singular, index}].empty?
-        return @catalog[{singular, index}]
-      elsif @catalog[{singular, 0}]? && !@catalog[{singular, 0}].empty?
-        return @catalog[{singular, 0}]
+    def ngettext(singular : String, plural : String? = nil, n : Int32 = 1) : String
+      index = @plural.as(Proc(Int32, Int32)).call(n)
+
+      if @catalog.has_key?({singular, plural, index}) && !@catalog[{singular, plural, index}].empty?
+        @catalog[{singular, plural, index}]
+      elsif @catalog.has_key?({singular, plural, 0}) && !@catalog[{singular, plural, 0}].empty?
+        @catalog[{singular, plural, 0}]
+      elsif @catalog.has_key?({singular, nil, index}) && !@catalog[{singular, nil, index}].empty?
+        @catalog[{singular, nil, index}]
+      elsif @catalog.has_key?({singular, nil, 0}) && !@catalog[{singular, nil, 0}].empty?
+        @catalog[{singular, nil, 0}]
+      elsif n == 1 || !plural
+        singular
       else
-        if n == 1
-          return singular
-        else
-          return plural
-        end
+        plural
       end
     end
   end
@@ -170,18 +190,12 @@ module Gettext
     whitespace ~ [\s]+
     END_BNF
 
-    property catalog : Hash(Tuple(String, Int32), String)
-    property metadata : Hash(String, String)
-    property plural : Proc(Int32, Int32)
-
     def initialize(io : IO)
       initialize(io.gets_to_end)
     end
 
     def initialize(string : String)
-      @catalog = {} of {String, Int32} => String
-      @metadata = {} of String => String
-      @plural = ->(x : Int32) { (x != 1).to_unsafe } # Germanic plural by default
+      super()
 
       parse(string)
     end
@@ -348,14 +362,8 @@ module Gettext
     LE_MAGIC = 0x950412de
     BE_MAGIC = 0xde120495
 
-    property catalog : Hash(Tuple(String, Int32), String)
-    property metadata : Hash(String, String)
-    property plural : Proc(Int32, Int32)
-
     def initialize(io)
-      @catalog = {} of {String, Int32} => String
-      @metadata = {} of String => String
-      @plural = ->(x : Int32) { (x != 1).to_unsafe } # Germanic plural by default
+      super()
 
       parse(io)
     end
@@ -436,34 +444,33 @@ module Gettext
             tmsg = String.new(tmsg).split("\u0000")
 
             tmsg.each_with_index do |x, i|
-              @catalog[{msgid1, i}] = x
+              @catalog[{msgid1, msgid2, i}] = x
             end
           else
-            @catalog[{String.new(msg), 0}] = String.new(tmsg)
+            @catalog[{String.new(msg), nil, 0}] = String.new(tmsg)
           end
         end
       end
     end
   end
 
-  class Translations
-    property translations : Hash(String, Locale)
+  struct Translations
+    alias Language = Tuple(String, String)
+    property translations : Hash(Language, Locale)
 
     def initialize(localedir, languages : Array(String)? = nil)
-      @translations = {} of String => Locale
+      @translations = {} of Language => Locale
 
       find(localedir)
     end
 
     def find(localedir)
       Dir.each_child(localedir) do |child|
-        pp localedir
-
         case child
         when .ends_with? ".mo"
-          @translations[child.rchop(".mo")] = MoParser.new(File.open("#{localedir}/#{child}"))
+          @translations[getlanguage(child.rchop(".mo"))] = MoParser.new(File.open("#{localedir}/#{child}"))
         when .ends_with? ".po"
-          @translations[child.rchop(".po")] = PoParser.new(File.open("#{localedir}/#{child}"))
+          @translations[getlanguage(child.rchop(".po"))] = PoParser.new(File.open("#{localedir}/#{child}"))
         else
           if Dir.exists?("#{localedir}/#{child}")
             find("#{localedir}/#{child}")
@@ -472,6 +479,48 @@ module Gettext
       end
 
       return translations
+    end
+
+    def getlanguage(string)
+      if string.includes? "-"
+        language, country = string.upcase.split("-")
+        {language, country}
+      elsif string.includes? "_"
+        language, country = string.upcase.split("_")
+        {language, country}
+      else
+        {string.upcase, ""}
+      end
+    end
+
+    def ngettext(language : String, singular : String, plural : String?, n : Int32) : String
+      ngettext(getlanguage(language), singular, plural, n)
+    end
+
+    def ngettext(language : Language, singular : String, plural : String? = nil, n : Int32 = 1) : String
+      if @translations.has_key?(language)
+        @translations[language].ngettext(singular, plural, n)
+      elsif @translations.has_key?({language[0], ""})
+        @translations[{language[0], ""}].ngettext(singular, plural, n)
+      elsif n == 1 || !plural
+        singular
+      else
+        plural
+      end
+    end
+
+    def gettext(language : String, message : String) : String
+      gettext(getlanguage(language), message)
+    end
+
+    def gettext(language : Language, message : String) : String
+      if @translations.has_key?(language)
+        @translations[language].gettext(message)
+      elsif @translations.has_key?({language[0], ""})
+        @translations[{language[0], ""}].gettext(message)
+      else
+        message
+      end
     end
   end
 
