@@ -72,7 +72,7 @@ module Gettext
           end
 
           if line.includes? ":"
-            key, value = line.split(":")
+            key, value = line.split(":", 2)
             key = key.strip.downcase
             value = value.strip
 
@@ -418,7 +418,7 @@ module Gettext
             end
 
             if line.includes? ":"
-              key, value = line.split(":")
+              key, value = line.split(":", 2)
               key = key.strip.downcase
               value = value.strip
 
