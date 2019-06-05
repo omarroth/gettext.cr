@@ -1,6 +1,6 @@
 # gettext.cr
 
-Crystal implementation of gettext
+Crystal implementation of [gettext](https://www.gnu.org/software/gettext/manual/gettext.html). Exposes similar API to [Python `gettext`](https://docs.python.org/3/library/gettext.html) with additional support for `PO` files.
 
 ## Installation
 
@@ -18,13 +18,20 @@ Crystal implementation of gettext
 
 ```crystal
 require "gettext"
+
+es_mo = Gettext::MoParser.new(File.open("examples/locales/es.mo"))
+es_po = Gettext::PoParser.new(File.open("examples/locales/es.po"))
+
+puts es_mo.ngettext("Time: %1 second", "Time: %1 seconds", 10) # => Czas: %1 sekundy
+puts es_mo.ngettext("Time: %1 second", 10)                     # => Time: %1 second
+puts es_po.ngettext("Time: %1 second", "Time: %1 seconds", 1)  # => Czas: %1 sekunda
+puts es_po.ngettext("Time: %1 second", 1)                      # => Czas: %1 sekunda
+
+translations = Gettext.find("examples/locales", nil)
+puts translations.ngettext("es-US", "Time: %1 second", "Time: %1 seconds", 10) # => Czas: %1 sekundy
+puts translations.gettext("es", "Logarithmic Scale")                           # => logaritamska skala
+
 ```
-
-TODO: Write usage instructions here
-
-## Development
-
-TODO: Write development instructions here
 
 ## Contributing
 
