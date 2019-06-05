@@ -90,7 +90,10 @@ module Gettext
           case key
           when "plural-forms"
             value = value.split(";")
-            @plural = PluralParser.parse(value[1].split("plural=")[1])
+            begin
+              @plural = PluralParser.parse(value[1].split("plural=")[1])
+            rescue ex
+            end
           end
         end
       else
@@ -435,7 +438,11 @@ module Gettext
               io.set_encoding(value.split("charset=")[1].downcase)
             when "plural-forms"
               value = value.split(";")
-              @plural = PluralParser.parse(value[1].split("plural=")[1])
+
+              begin
+                @plural = PluralParser.parse(value[1].split("plural=")[1])
+              rescue ex
+              end
             end
           end
         else
@@ -471,6 +478,8 @@ module Gettext
           @translations[getlanguage(child.rchop(".mo"))] = MoParser.new(File.open("#{localedir}/#{child}"))
         when .ends_with? ".po"
           @translations[getlanguage(child.rchop(".po"))] = PoParser.new(File.open("#{localedir}/#{child}"))
+        when .ends_with? ".pot"
+          @translations[getlanguage(child.rchop(".pot"))] = PoParser.new(File.open("#{localedir}/#{child}"))
         else
           if Dir.exists?("#{localedir}/#{child}")
             find("#{localedir}/#{child}")
